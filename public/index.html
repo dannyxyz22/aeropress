@@ -9,28 +9,22 @@
   <body>
     <main class="container">
       <header class="header">
-        <div class="header-icon" aria-hidden="true">📄</div>
         <h1>Compactador de PDF da FAB</h1>
-        <p class="subtitle">
-          Envie seu PDF e escolha o nível de compressão. O arquivo será processado
-          no servidor usando Ghostscript.
-        </p>
+        <p class="subtitle">Envie seu PDF e escolha o nível de compressão. O arquivo será processado no servidor.</p>
       </header>
 
       <form id="compress-form" class="card">
         <label class="field">
-          <span>Arquivo PDF</span>
+          <span class="label">Arquivo PDF</span>
           <div class="drop-zone" id="drop-zone" tabindex="0" role="button">
             <input id="file-input" name="file" type="file" accept="application/pdf" required />
-            <p class="drop-zone-text">
-              <strong>Clique ou arraste</strong> um arquivo PDF aqui
-            </p>
-            <p class="file-name" id="file-name" aria-live="polite"></p>
+            <span class="drop-zone-text">Clique ou arraste um PDF aqui</span>
+            <span class="file-name" id="file-name" aria-live="polite"></span>
           </div>
         </label>
 
         <label class="field">
-          <span>Nível de compressão</span>
+          <span class="label">Nível de compressão</span>
           <select id="preset" name="preset">
             <option value="low">Máxima redução (screen)</option>
             <option value="medium" selected>Equilibrado (ebook)</option>
@@ -42,19 +36,11 @@
         <button type="submit" id="submit-btn">Compactar</button>
       </form>
 
-      <section id="status" class="status" aria-live="polite"></section>
-      <section id="result" class="result hidden">
-        <h2>Resultado</h2>
-        <p id="sizes"></p>
-        <a id="download-link" class="download" href="#" download="compressed.pdf">
-          Baixar PDF compactado
-        </a>
-      </section>
+      <p id="status" class="status" aria-live="polite"></p>
 
-      <section class="note">
-        <p>
-          A compressão ocorre no servidor; o arquivo é enviado para processamento.
-        </p>
+      <section id="result" class="result hidden">
+        <p id="sizes" class="result-sizes"></p>
+        <a id="download-link" class="download" href="#" download="compressed.pdf">Baixar PDF compactado</a>
       </section>
     </main>
     <script src="/app.js"></script>

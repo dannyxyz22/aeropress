@@ -26,7 +26,18 @@ const upload = multer({
   },
 });
 
-app.use(express.static(path.join(__dirname, "..", "public")));
+const publicPath = path.join(__dirname, "..", "public");
+const utf8Mime = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+};
+app.use(express.static(publicPath, {
+  setHeaders: (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (utf8Mime[ext]) res.setHeader("Content-Type", utf8Mime[ext]);
+  },
+}));
 
 app.post("/api/compress", upload.single("file"), async (req, res) => {
   if (!req.file) {
