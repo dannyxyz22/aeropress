@@ -2,122 +2,143 @@
 
 ## Visão geral
 
-O pdfcomp expõe um único endpoint HTTP para compactar PDFs. O processamento é feito no servidor com Ghostscript.
+O pdfcomp compacta PDFs no servidor com Ghostscript. O upload é feito **em chunks** (partes), permitindo arquivos até **1 GB** e melhor tolerância a conexões instáveis.
 
 **Base URL (exemplo):** `http://localhost:3000`
 
-**Última atualização:** 2025
+**Fluxo:** `POST /api/compress/init` → várias vezes `POST /api/compress/chunk` → `POST /api/compress/finalize` (resposta = PDF).
 
-## Endpoint: compactar PDF
+---
 
-### O que faz
+## Limites
 
-Recebe um arquivo PDF e um nível de compressão (preset), compacta o PDF no servidor com Ghostscript e devolve o PDF compactado para download. Os headers de resposta informam o tamanho original e o tamanho compactado.
+| Limite | Valor |
+|--------|--------|
+| Tamanho máximo do arquivo | 1 GB |
+| Tamanho máximo por chunk | 5 MB |
+| Chunks enviados em ordem | Obrigatório (0, 1, 2, …) |
 
-### Endpoint
+---
 
+## 1. Iniciar upload — `POST /api/compress/init`
+
+### Corpo (JSON)
+
+| Campo | Tipo | Obrigatório | Descrição |
+|--------|------|--------------|-----------|
+| `filename` | string | Não | Nome do arquivo (informativo). |
+| `totalSize` | number | Sim | Tamanho total do arquivo em bytes (máx. 1 GB). |
+| `totalChunks` | number | Sim | Número total de chunks (inteiro, 1–20000). |
+| `preset` | string | Não | `low`, `medium`, `high`, `max`. Padrão: `medium`. |
+
+### Resposta de sucesso (200)
+
+```json
+{ "uploadId": "uuid" }
 ```
-POST /api/compress
+
+Guarde o `uploadId` para as próximas requisições.
+
+### Erros (onde: `init`)
+
+| Código | Situação | Campo `where` |
+|--------|----------|----------------|
+| 400 | `totalSize` ou `totalChunks` ausentes | `init` |
+| 400 | Tamanho > 1 GB | `init` |
+| 400 | `totalChunks` inválido (não inteiro ou fora de 1–20000) | `init` |
+
+Corpo de erro: `{ "error": "mensagem", "where": "init" }`.
+
+---
+
+## 2. Enviar chunk — `POST /api/compress/chunk`
+
+### Corpo (multipart/form-data)
+
+| Campo | Tipo | Obrigatório | Descrição |
+|--------|------|-------------|-----------|
+| `uploadId` | string | Sim | Retornado por `init`. |
+| `chunkIndex` | number | Sim | Índice do chunk (0, 1, 2, …). Deve ser enviado em ordem. |
+| `chunk` | arquivo | Sim | Conteúdo binário do chunk (máx. 5 MB). |
+
+### Resposta de sucesso (200)
+
+```json
+{ "received": 0 }
 ```
 
-### Autenticação
+### Erros (onde: `chunk`)
 
-Nenhuma. O endpoint é público.
+| Código | Situação | Campo `where` |
+|--------|----------|----------------|
+| 400 | `uploadId` ou `chunkIndex` ausentes/inválidos | `chunk` |
+| 400 | Chunk excede 5 MB | `chunk` |
+| 400 | Chunk fora de ordem (ex.: enviou 2 antes do 1) | `chunk` |
+| 400 | Nenhum dado no campo `chunk` | `chunk` |
+| 404 | `uploadId` não encontrado ou expirado | `chunk` |
 
-### Formato do corpo (request)
+Corpo de erro: `{ "error": "mensagem", "where": "chunk" }`.
 
-**Content-Type:** `multipart/form-data`
+---
 
-| Campo   | Tipo   | Obrigatório | Descrição |
-|---------|--------|-------------|-----------|
-| `file`  | arquivo | Sim       | Arquivo PDF a ser compactado. Deve ser `application/pdf`. |
-| `preset`| string | Não        | Nível de compressão: `low`, `medium`, `high` ou `max`. Padrão: `medium`. |
+## 3. Finalizar e obter PDF — `POST /api/compress/finalize`
 
-**Presets:**
+### Corpo (JSON)
 
-- `low` — Máxima compressão, qualidade mais baixa (Ghostscript: /screen).
-- `medium` — Equilíbrio tamanho/qualidade (Ghostscript: /ebook).
-- `high` — Melhor qualidade, para impressão (Ghostscript: /printer).
-- `max` — Qualidade máxima, pré-impressão (Ghostscript: /prepress).
+| Campo | Tipo | Obrigatório | Descrição |
+|--------|------|-------------|-----------|
+| `uploadId` | string | Sim | O mesmo de `init` e `chunk`. |
 
 ### Resposta de sucesso (200)
 
 - **Content-Type:** `application/pdf`
 - **Content-Disposition:** `attachment; filename="compressed.pdf"`
-- **Headers customizados:**
+- **Headers:** `X-Original-Size`, `X-Compressed-Size`
+- Corpo: arquivo PDF compactado (binário).
 
-| Header              | Descrição                          |
-|---------------------|------------------------------------|
-| `X-Original-Size`   | Tamanho do arquivo enviado (bytes). |
-| `X-Compressed-Size` | Tamanho do PDF compactado (bytes).  |
+### Erros (onde: `finalize` ou `ghostscript`)
 
-O corpo da resposta é o próprio arquivo PDF compactado (binário).
+| Código | Situação | Campo `where` |
+|--------|----------|----------------|
+| 400 | `uploadId` ausente | `finalize` |
+| 400 | Upload incompleto (nem todos os chunks recebidos) | `finalize` |
+| 404 | `uploadId` não encontrado ou expirado | `finalize` |
+| 500 | Falha ao compactar (Ghostscript) | `ghostscript` |
 
-### Respostas de erro
+Corpo de erro: `{ "error": "mensagem", "where": "finalize" }` ou `"where": "ghostscript"`.
 
-Todas as respostas de erro têm **Content-Type:** `application/json` e corpo no formato:
+---
+
+## Respostas de erro (geral)
+
+Todas as respostas de erro são **application/json** e podem incluir o campo **`where`** indicando a etapa em que o erro ocorreu:
+
+- **`init`** — Validação ao iniciar o upload (tamanho, número de chunks).
+- **`chunk`** — Envio de um chunk (ordem, tamanho, uploadId).
+- **`finalize`** — Finalização (uploadId, integridade do upload).
+- **`ghostscript`** — Falha na compactação pelo Ghostscript (binário não encontrado ou erro ao processar o PDF).
+
+Exemplo:
 
 ```json
 {
-  "error": "Mensagem legível do erro."
+  "error": "Upload incompleto. Recebidos 10 de 20 chunks.",
+  "where": "finalize"
 }
 ```
 
-| Código | Situação | Exemplo de mensagem |
-|--------|----------|----------------------|
-| 400    | Nenhum arquivo enviado ou campo não é `file`. | `"Arquivo PDF obrigatório."` |
-| 400    | Arquivo não é PDF (rejeitado pelo fileFilter). | `"Only PDF files are allowed."` |
-| 413    | Arquivo maior que o limite (100 MB). | (depende do Express/multer) |
-| 500    | Falha ao executar Ghostscript ou ao enviar o arquivo. | `"Falha na compressao. Verifique o Ghostscript."` ou mensagem do Ghostscript |
-| 404    | Rota inexistente. | `"Not found"` |
+---
 
-### Limite de tamanho e validação
+## Presets de compressão
 
-- O tamanho máximo do upload é **100 MB** (configurável em `server/index.js` via `MAX_FILE_SIZE`).
-- Apenas arquivos com `Content-Type` (mimetype) `application/pdf` são aceitos; outros tipos são rejeitados antes de chamar o Ghostscript.
+| Valor | Descrição (Ghostscript) |
+|--------|--------------------------|
+| `low` | /screen — máxima redução |
+| `medium` | /ebook — equilibrado (padrão) |
+| `high` | /printer — alta qualidade |
+| `max` | /prepress — mínima alteração |
 
-### Exemplo de uso (curl)
-
-```bash
-# Substitua /caminho/para/seu.pdf pelo caminho real do arquivo
-curl -X POST http://localhost:3000/api/compress \
-  -F "file=@/caminho/para/seu.pdf" \
-  -F "preset=medium" \
-  -o compressed.pdf
-```
-
-No Windows (PowerShell), exemplo com arquivo no diretório atual:
-
-```powershell
-curl.exe -X POST http://localhost:3000/api/compress -F "file=@.\meu.pdf" -F "preset=medium" -o compressed.pdf
-```
-
-### Exemplo no frontend (JavaScript)
-
-O frontend em `public/app.js` envia o formulário assim:
-
-```javascript
-const formData = new FormData();
-formData.append("file", file);        // File do <input type="file">
-formData.append("preset", presetSelect.value);  // "low" | "medium" | "high" | "max"
-
-const response = await fetch("/api/compress", {
-  method: "POST",
-  body: formData,
-});
-
-// Sucesso: response.ok === true, response.body é o PDF
-const originalSize = Number(response.headers.get("X-Original-Size"));
-const compressedSize = Number(response.headers.get("X-Compressed-Size"));
-const blob = await response.blob();
-// Criar link de download com URL.createObjectURL(blob), etc.
-```
-
-### Erros comuns e como tratar
-
-- **400** — Garantir que o campo do formulário se chama `file` e que o arquivo é PDF.
-- **500 com mensagem sobre Ghostscript** — Verificar se o Ghostscript está instalado e no PATH (ou `GHOSTSCRIPT_PATH`). Ver README, seção "Solução de problemas".
-- **413** — Reduzir o tamanho do arquivo ou aumentar `MAX_FILE_SIZE` no servidor.
+---
 
 ## Referências
 

@@ -9,6 +9,9 @@ const submitBtn = document.getElementById("submit-btn");
 const dropZone = document.getElementById("drop-zone");
 const fileNameEl = document.getElementById("file-name");
 
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1 GB
+const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB por chunk
+
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "-";
   const units = ["B", "KB", "MB", "GB"];
@@ -29,6 +32,12 @@ function setStatus(message, isError = false) {
 function updateFileName() {
   const file = fileInput.files[0];
   fileNameEl.textContent = file ? file.name : "";
+}
+
+function showServerError(data, context = "") {
+  const msg = data?.error || "Erro desconhecido no servidor.";
+  const where = data?.where ? ` [servidor: ${data.where}]` : "";
+  setStatus(context ? `${context} ${msg}${where}` : `${msg}${where}`, true);
 }
 
 fileInput.addEventListener("change", updateFileName);
@@ -78,32 +87,98 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
+  // Erro no cliente: arquivo maior que o limite
+  if (file.size > MAX_FILE_SIZE) {
+    setStatus(
+      `Arquivo muito grande. Limite: 1 GB. Seu arquivo: ${formatBytes(file.size)}. [cliente: validação]`,
+      true
+    );
+    return;
+  }
+
   resultEl.classList.add("hidden");
-  setStatus("Compactando...");
   submitBtn.disabled = true;
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("preset", presetSelect.value);
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const preset = presetSelect.value;
 
   try {
-    const response = await fetch("/api/compress", {
+    // --- init (servidor: init) ---
+    setStatus("Preparando envio...");
+    const initRes = await fetch("/api/compress/init", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        totalSize: file.size,
+        totalChunks,
+        preset,
+      }),
     });
 
-    if (!response.ok) {
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const data = await response.json();
-        throw new Error(data.error || "Falha na compressão.");
-      }
-      throw new Error("Falha na compressão.");
+    const initData = await initRes.json().catch(() => ({}));
+    if (!initRes.ok) {
+      showServerError(initData, "Início do upload falhou.");
+      return;
     }
 
-    const originalSize = Number(response.headers.get("X-Original-Size"));
-    const compressedSize = Number(response.headers.get("X-Compressed-Size"));
-    const blob = await response.blob();
+    const { uploadId } = initData;
+    if (!uploadId) {
+      setStatus("Resposta inválida do servidor (uploadId ausente). [cliente: init]", true);
+      return;
+    }
+
+    // --- chunks (servidor: chunk) ---
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const blob = file.slice(start, end);
+
+      setStatus(`Enviando... ${Math.round(((i + 1) / totalChunks) * 100)}%`);
+
+      const formData = new FormData();
+      formData.append("uploadId", uploadId);
+      formData.append("chunkIndex", String(i));
+      formData.append("chunk", blob, "chunk");
+
+      const chunkRes = await fetch("/api/compress/chunk", {
+        method: "POST",
+        body: formData,
+      });
+
+      const chunkData = await chunkRes.json().catch(() => ({}));
+      if (!chunkRes.ok) {
+        showServerError(
+          chunkData,
+          `Falha no envio do chunk ${i + 1} de ${totalChunks}.`
+        );
+        return;
+      }
+    }
+
+    // --- finalize (servidor: finalize ou ghostscript) ---
+    setStatus("Compactando...");
+
+    const finalizeRes = await fetch("/api/compress/finalize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId }),
+    });
+
+    if (!finalizeRes.ok) {
+      const finalizeData = await finalizeRes.json().catch(() => ({}));
+      showServerError(
+        finalizeData,
+        finalizeData?.where === "ghostscript"
+          ? "Falha na compactação (Ghostscript)."
+          : "Falha ao finalizar upload."
+      );
+      return;
+    }
+
+    const originalSize = Number(finalizeRes.headers.get("X-Original-Size"));
+    const compressedSize = Number(finalizeRes.headers.get("X-Compressed-Size"));
+    const blob = await finalizeRes.blob();
     const url = URL.createObjectURL(blob);
 
     downloadLink.href = url;
@@ -111,7 +186,13 @@ form.addEventListener("submit", async (event) => {
     resultEl.classList.remove("hidden");
     setStatus("Pronto!");
   } catch (error) {
-    setStatus(error.message || "Falha na compressão.", true);
+    // Erro de rede ou exceção no cliente
+    const msg = error?.message || "";
+    if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+      setStatus("Conexão perdida durante o upload. Tente novamente. [cliente: rede]", true);
+    } else {
+      setStatus(`${msg || "Erro inesperado."} [cliente]`, true);
+    }
   } finally {
     submitBtn.disabled = false;
   }

@@ -150,7 +150,7 @@ No Windows você pode usar `gswin64c.exe` (64 bits) ou `gswin32c.exe` (32 bits).
 
 ### Limite de tamanho (413 ou erro ao enviar)
 
-- O tamanho máximo permitido é **100 MB**. Arquivos maiores são rejeitados pelo multer. Para mudar, altere `MAX_FILE_SIZE` em `server/index.js`.
+- O tamanho máximo permitido é **1 GB**. O upload é feito em chunks (partes de 2 MB); arquivos maiores que 1 GB são rejeitados. Limites em `server/index.js` (`MAX_FILE_SIZE`, `MAX_CHUNK_SIZE`). Ver [docs/API.md](docs/API.md) para o fluxo init/chunk/finalize.
 
 ### Erro 500 ao compactar
 
