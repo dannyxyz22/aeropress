@@ -1,0 +1,22 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (nunca versionar)
+.env
+.env.*
+!.env.example
+
+# Artefatos e backups
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE (descomente se não quiser versionar)
+# .vscode/
+# .idea/

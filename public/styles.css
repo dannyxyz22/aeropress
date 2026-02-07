@@ -1,0 +1,289 @@
+/* pdfcomp — tema quente, focado em documentos */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
+
+:root {
+  --bg-start: #f8f6f3;
+  --bg-end: #edeae5;
+  --surface: #ffffff;
+  --surface-border: #e8e4de;
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-light: #ccfbf1;
+  --success: #059669;
+  --success-bg: #d1fae5;
+  --error: #b91c1c;
+  --error-bg: #fee2e2;
+  --shadow: 0 1px 3px rgba(28, 25, 23, 0.06);
+  --shadow-lg: 0 10px 40px -12px rgba(28, 25, 23, 0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: "DM Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  background: linear-gradient(160deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.header-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  max-width: 36ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Card / Form */
+.card {
+  background: var(--surface);
+  padding: 28px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--surface-border);
+  display: grid;
+  gap: 20px;
+}
+
+.field {
+  display: grid;
+  gap: 10px;
+}
+
+.field span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* File drop zone */
+.drop-zone {
+  position: relative;
+  border: 2px dashed var(--surface-border);
+  border-radius: var(--radius-sm);
+  padding: 24px 20px;
+  text-align: center;
+  background: var(--bg-start);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.drop-zone-text {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.drop-zone-text strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.file-name {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+/* Select */
+select {
+  width: 100%;
+  padding: 12px 14px;
+  font-family: var(--font);
+  font-size: 0.9375rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2357534e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+  transition: border-color 0.2s;
+}
+
+select:hover,
+select:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* Button */
+button[type="submit"] {
+  padding: 14px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: white;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35);
+}
+
+button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4);
+}
+
+button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Status */
+.status {
+  margin-top: 20px;
+  min-height: 28px;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status.error {
+  color: var(--error);
+  background: var(--error-bg);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #fecaca;
+}
+
+/* Result card */
+.result {
+  margin-top: 24px;
+  padding: 20px 24px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+}
+
+.result.hidden {
+  display: none;
+}
+
+.result h2 {
+  margin: 0 0 12px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.result #sizes {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 18px;
+  background: var(--primary-light);
+  color: var(--primary-hover);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s, color 0.2s;
+}
+
+.download:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.download::before {
+  content: "↓";
+  font-size: 1.1em;
+}
+
+/* Note */
+.note {
+  margin-top: 32px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 42ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.note p {
+  margin: 0;
+}
