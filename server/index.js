@@ -24,8 +24,11 @@ const PORT = process.env.PORT || 3000;
 const MAX_FILE_SIZE = 1024 * 1024 * 1024;
 const MAX_CHUNK_SIZE = 5 * 1024 * 1024;
 
-/** Estado dos uploads em andamento: uploadId -> { uploadPath, totalSize, totalChunks, nextChunk, preset } */
+/** Estado dos uploads em andamento: uploadId -> { uploadPath, tempDir, totalSize, totalChunks, nextChunk, preset } */
 const uploads = new Map();
+
+/** Jobs de compressão (finalize assíncrono): jobId -> { status, progress, upload?, outputPath?, error?, originalSize?, compressedSize? } */
+const jobs = new Map();
 
 // JSON para init e finalize
 app.use(express.json({ limit: "1kb" }));
@@ -178,7 +181,7 @@ app.post("/api/compress/chunk", (req, res, next) => {
   }
 });
 
-/** POST /api/compress/finalize — Finaliza o upload e retorna o PDF compactado. Corpo: { uploadId }. */
+/** POST /api/compress/finalize — Inicia a compressão em background e retorna jobId. Corpo: { uploadId }. */
 app.post("/api/compress/finalize", async (req, res) => {
   const where = "finalize";
   let uploadId = null;
@@ -211,37 +214,47 @@ app.post("/api/compress/finalize", async (req, res) => {
       return;
     }
 
+    const jobId = randomUUID();
     const outputPath = path.join(upload.tempDir, "compressed.pdf");
 
-    try {
-      await compressPdf(upload.uploadPath, outputPath, upload.preset);
-    } catch (gsError) {
-      await cleanupUpload(uploadId);
-      res.status(500).json({
-        error: gsError?.message || "Falha ao compactar o PDF (Ghostscript).",
-        where: "ghostscript",
+    uploads.delete(uploadId);
+
+    const job = {
+      status: "compressing",
+      progress: 0,
+      upload,
+      outputPath,
+      error: null,
+      originalSize: upload.totalSize,
+      compressedSize: null,
+    };
+    jobs.set(jobId, job);
+
+    res.status(200).json({ jobId });
+
+    compressPdf(upload.uploadPath, outputPath, upload.preset, {
+      onProgress: (currentPage, totalPages) => {
+        const p = totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0;
+        job.progress = Math.min(100, p);
+      },
+    })
+      .then(async () => {
+        try {
+          const stat = await fsp.stat(outputPath);
+          job.status = "done";
+          job.progress = 100;
+          job.compressedSize = stat.size;
+        } catch {
+          job.status = "error";
+          job.error = "Arquivo compactado não encontrado.";
+        }
+      })
+      .catch((err) => {
+        job.status = "error";
+        job.progress = 0;
+        job.error = err?.message || "Falha ao compactar (Ghostscript).";
+        safeRm(upload.tempDir);
       });
-      return;
-    }
-
-    const compressedStat = await fsp.stat(outputPath);
-
-    res.set({
-      "Content-Type": "application/pdf",
-      "Content-Disposition": "attachment; filename=\"compressed.pdf\"",
-      "X-Original-Size": String(upload.totalSize),
-      "X-Compressed-Size": String(compressedStat.size),
-    });
-
-    const stream = fs.createReadStream(outputPath);
-    stream.pipe(res);
-
-    stream.on("end", async () => {
-      await cleanupUpload(uploadId);
-    });
-    stream.on("error", async () => {
-      await cleanupUpload(uploadId);
-    });
   } catch (err) {
     if (uploadId) await cleanupUpload(uploadId);
     res.status(500).json({
@@ -250,6 +263,69 @@ app.post("/api/compress/finalize", async (req, res) => {
     });
   }
 });
+
+/** GET /api/compress/status?jobId=xxx — Retorna status e progresso da compressão. */
+app.get("/api/compress/status", (req, res) => {
+  const jobId = req.query?.jobId;
+  if (!jobId) {
+    res.status(400).json({ error: "jobId é obrigatório.", where: "status" });
+    return;
+  }
+  const job = jobs.get(jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job não encontrado ou já concluído.", where: "status" });
+    return;
+  }
+  res.status(200).json({
+    status: job.status,
+    progress: job.progress,
+    error: job.error || undefined,
+  });
+  if (job.status === "error") {
+    setTimeout(() => cleanupJob(jobId), 5000);
+  }
+});
+
+/** GET /api/compress/result?jobId=xxx — Retorna o PDF compactado quando status === 'done'. */
+app.get("/api/compress/result", (req, res) => {
+  const jobId = req.query?.jobId;
+  if (!jobId) {
+    res.status(400).json({ error: "jobId é obrigatório.", where: "result" });
+    return;
+  }
+  const job = jobs.get(jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job não encontrado ou já concluído.", where: "result" });
+    return;
+  }
+  if (job.status !== "done") {
+    res.status(400).json({
+      error: job.status === "error" ? job.error : "Compressão ainda em andamento.",
+      where: "result",
+    });
+    return;
+  }
+
+  res.set({
+    "Content-Type": "application/pdf",
+    "Content-Disposition": "attachment; filename=\"compressed.pdf\"",
+    "X-Original-Size": String(job.originalSize),
+    "X-Compressed-Size": String(job.compressedSize),
+  });
+
+  const stream = fs.createReadStream(job.outputPath);
+  stream.pipe(res);
+  stream.on("end", () => cleanupJob(jobId));
+  stream.on("error", () => cleanupJob(jobId));
+});
+
+function cleanupJob(jobId) {
+  const job = jobs.get(jobId);
+  if (job) {
+    jobs.delete(jobId);
+    if (job.upload?.tempDir) safeRm(job.upload.tempDir);
+  }
+}
 
 async function cleanupUpload(uploadId) {
   const upload = uploads.get(uploadId);

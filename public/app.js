@@ -156,8 +156,8 @@ form.addEventListener("submit", async (event) => {
       }
     }
 
-    // --- finalize (servidor: finalize ou ghostscript) ---
-    setStatus("Compactando...");
+    // --- finalize: inicia compressão e retorna jobId ---
+    setStatus("Compactando... 0%");
 
     const finalizeRes = await fetch("/api/compress/finalize", {
       method: "POST",
@@ -165,8 +165,8 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({ uploadId }),
     });
 
+    const finalizeData = await finalizeRes.json().catch(() => ({}));
     if (!finalizeRes.ok) {
-      const finalizeData = await finalizeRes.json().catch(() => ({}));
       showServerError(
         finalizeData,
         finalizeData?.where === "ghostscript"
@@ -176,9 +176,43 @@ form.addEventListener("submit", async (event) => {
       return;
     }
 
-    const originalSize = Number(finalizeRes.headers.get("X-Original-Size"));
-    const compressedSize = Number(finalizeRes.headers.get("X-Compressed-Size"));
-    const blob = await finalizeRes.blob();
+    const { jobId } = finalizeData;
+    if (!jobId) {
+      setStatus("Resposta inválida do servidor (jobId ausente). [cliente: finalize]", true);
+      return;
+    }
+
+    // --- poll status até done ou error ---
+    const pollInterval = 400;
+    let statusData = {};
+    while (true) {
+      const statusRes = await fetch(`/api/compress/status?jobId=${encodeURIComponent(jobId)}`);
+      statusData = await statusRes.json().catch(() => ({}));
+      if (!statusRes.ok) {
+        showServerError(statusData, "Falha ao consultar status da compressão.");
+        return;
+      }
+      const progress = statusData.progress ?? 0;
+      setStatus(`Compactando... ${progress}%`);
+      if (statusData.status === "done") break;
+      if (statusData.status === "error") {
+        setStatus(statusData.error || "Erro na compressão.", true);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, pollInterval));
+    }
+
+    // --- obter PDF ---
+    const resultRes = await fetch(`/api/compress/result?jobId=${encodeURIComponent(jobId)}`);
+    if (!resultRes.ok) {
+      const resultData = await resultRes.json().catch(() => ({}));
+      showServerError(resultData, "Falha ao obter o PDF compactado.");
+      return;
+    }
+
+    const originalSize = Number(resultRes.headers.get("X-Original-Size"));
+    const compressedSize = Number(resultRes.headers.get("X-Compressed-Size"));
+    const blob = await resultRes.blob();
     const url = URL.createObjectURL(blob);
 
     downloadLink.href = url;
