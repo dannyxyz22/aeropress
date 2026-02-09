@@ -8,6 +8,10 @@ node_modules/
 
 # Artefatos e backups
 *.zip
+dist/
+
+# Ghostscript empacotado (opcional; descomente se não versionar)
+# vendor/
 
 # OS
 .DS_Store

@@ -8,13 +8,37 @@
     "dev": "node server/index.js",
     "start": "node server/index.js",
     "electron": "electron .",
-    "electron:dev": "electron ."
+    "electron:dev": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:portable": "electron-builder --win portable",
+    "build:with-gs": "electron-builder -c electron-builder-with-gs.json"
+  },
+  "build": {
+    "appId": "com.pdfcomp.app",
+    "productName": "Compactador de PDF",
+    "directories": { "output": "dist" },
+    "files": ["electron/**", "server/**", "public/**", "package.json"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "sign": null,
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["pt_BR"]
+    }
   },
   "dependencies": {
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
-    "electron": "^28.0.0"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
   }
 }

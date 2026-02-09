@@ -159,6 +159,55 @@ npm run dev
 
 No Windows você pode usar `gswin64c.exe` (64 bits) ou `gswin32c.exe` (32 bits).
 
+### Empacotar e distribuir (executável para usuário final)
+
+É possível gerar um instalador Windows (e um .exe portátil) com **electron-builder**. O usuário final não precisa ter Node.js nem Ghostscript instalado **se** você empacotar o Ghostscript junto (opção 2 abaixo).
+
+#### 1. Gerar o instalador (sem Ghostscript incluído)
+
+O instalador será menor; o usuário precisa ter o Ghostscript instalado no PC (ou verá a mensagem de erro já tratada no app).
+
+```bash
+npm install
+npm run build
+```
+
+Os arquivos saem em `dist/`:
+- **Instalador:** `dist/Compactador de PDF 1.0.0.exe` (NSIS)
+- **Portátil:** `dist/Compactador de PDF 1.0.0.exe` (portable, na pasta do instalador ou via `npm run build:portable`)
+
+Scripts úteis:
+- `npm run build` — build para o sistema atual (Windows: NSIS + portable)
+- `npm run build:win` — só Windows
+- `npm run build:portable` — só .exe portátil
+
+#### 2. Incluir o Ghostscript no instalador (melhor para usuário leigo)
+
+Assim o usuário **não** precisa instalar nada além do seu instalador. O app usa o Ghostscript que vem dentro do pacote.
+
+1. **Instale o Ghostscript** no seu PC (para desenvolvimento), por exemplo em:  
+   `C:\Program Files\gs\gs10.03.0\`
+2. **Copie a instalação do Ghostscript** para o projeto:
+   - Crie a pasta `vendor/gs` na raiz do projeto.
+   - Copie **todo o conteúdo** da pasta do Ghostscript (as pastas `bin`, `lib`, etc.) para dentro de `vendor/gs`. Ao final deve existir `vendor/gs/bin/gswin64c.exe`.
+3. **Gere o instalador com Ghostscript incluído:**
+
+```bash
+npm run build:with-gs
+```
+
+O resultado em `dist/` terá o app e o Ghostscript; ao abrir, o compactador funcionará sem pedir instalação extra.
+
+**Atenção (licença):** O Ghostscript é licenciado sob AGPL. Se você **redistribuir** o Ghostscript junto com o seu app, precisa cumprir a AGPL (por exemplo, disponibilizar o código-fonte do seu app) ou obter licença comercial da [Artifex](https://artifex.com/). Para uso interno ou sem redistribuição do Ghostscript, use o build sem GS (opção 1).
+
+#### Resumo: melhor forma de entregar para usuário leigo
+
+| Situação | Recomendação |
+|----------|--------------|
+| Uso interno / você controla a máquina | Build sem GS (`npm run build`); instale o Ghostscript uma vez no PC. |
+| Entregar para terceiros sem exigir instalação | Build com GS (`npm run build:with-gs`) e cumprir a licença do Ghostscript (AGPL ou licença comercial). |
+| Entregar sem incluir Ghostscript | Build sem GS; na primeira execução o app mostra mensagem de erro com link para baixar o Ghostscript — o usuário instala e abre o app de novo. |
+
 ## Configuração
 
 ### Variáveis de ambiente

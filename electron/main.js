@@ -2,7 +2,8 @@
  * Processo principal do Electron — janela, diálogos e compressão via Ghostscript.
  */
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
-import fs from "node:fs/promises";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow = null;
+
+/** Define GHOSTSCRIPT_PATH para o Ghostscript empacotado (extraResources/gs), se existir. */
+function setupBundledGhostscript() {
+  if (!app.isPackaged || process.env.GHOSTSCRIPT_PATH) return;
+  const gsExe = path.join(process.resourcesPath, "gs", "bin", "gswin64c.exe");
+  if (fs.existsSync(gsExe)) process.env.GHOSTSCRIPT_PATH = gsExe;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -34,7 +42,10 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  setupBundledGhostscript();
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   app.quit();
@@ -63,7 +74,7 @@ ipcMain.handle("select-pdf", async () => {
   if (result.canceled || !result.filePaths?.length) return null;
   const filePath = result.filePaths[0];
   try {
-    const stat = await fs.stat(filePath);
+    const stat = await fsp.stat(filePath);
     return {
       path: filePath,
       name: path.basename(filePath),
@@ -76,7 +87,7 @@ ipcMain.handle("select-pdf", async () => {
 
 /** Compactar PDF e salvar (diálogo "Salvar como") */
 ipcMain.handle("compress", async (_event, { inputPath, preset }) => {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "pdfcomp-electron-"));
+  const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "pdfcomp-electron-"));
   const outputPath = path.join(tempDir, "compressed.pdf");
 
   const sendProgress = (current, total) => {
@@ -87,14 +98,14 @@ ipcMain.handle("compress", async (_event, { inputPath, preset }) => {
   };
 
   try {
-    const inputStat = await fs.stat(inputPath);
+    const inputStat = await fsp.stat(inputPath);
     const originalSize = inputStat.size;
 
     await compressPdf(inputPath, outputPath, preset || "medium", {
       onProgress: sendProgress,
     });
 
-    const outputStat = await fs.stat(outputPath);
+    const outputStat = await fsp.stat(outputPath);
     const compressedSize = outputStat.size;
 
     const saveResult = await dialog.showSaveDialog(getDialogParent(), {
@@ -104,12 +115,12 @@ ipcMain.handle("compress", async (_event, { inputPath, preset }) => {
     });
 
     if (saveResult.canceled || !saveResult.filePath) {
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await fsp.rm(tempDir, { recursive: true, force: true });
       return { canceled: true };
     }
 
-    await fs.copyFile(outputPath, saveResult.filePath);
-    await fs.rm(tempDir, { recursive: true, force: true });
+    await fsp.copyFile(outputPath, saveResult.filePath);
+    await fsp.rm(tempDir, { recursive: true, force: true });
 
     return {
       canceled: false,
@@ -118,7 +129,7 @@ ipcMain.handle("compress", async (_event, { inputPath, preset }) => {
       savedPath: saveResult.filePath,
     };
   } catch (err) {
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await fsp.rm(tempDir, { recursive: true, force: true }).catch(() => {});
     throw err;
   }
 });

@@ -1,0 +1,20 @@
+{
+  "appId": "com.pdfcomp.app",
+  "productName": "Compactador de PDF",
+  "directories": { "output": "dist" },
+  "files": ["electron/**", "server/**", "public/**", "package.json"],
+  "extraResources": [{ "from": "vendor/gs", "to": "gs" }],
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] }
+    ],
+    "sign": null,
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "installerLanguages": ["pt_BR"]
+  }
+}

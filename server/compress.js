@@ -26,13 +26,13 @@ const DEFAULT_ARGS_BASE = [
 // Com -dQUIET não há progresso; sem -dQUIET o Ghostscript pode emitir "Page N" em stderr
 const PAGE_RE = /Page\s+(\d+)/i;
 
-// No Windows o instalador usa gswin64c/gswin32c, que costumam não estar no PATH.
-const CANDIDATE_COMMANDS = (() => {
+// Lista de comandos tentados (lido em tempo de execução para respeitar GHOSTSCRIPT_PATH definido depois do load, ex.: app empacotado).
+function getCandidateCommands() {
   const envCommand = process.env.GHOSTSCRIPT_PATH;
   if (envCommand) return [envCommand];
   if (process.platform === "win32") return ["gswin64c", "gswin32c", "gs"];
   return ["gs"];
-})();
+}
 
 /**
  * Obtém o número de páginas do PDF (para calcular percentual de progresso).
@@ -106,7 +106,7 @@ function runGhostscript(command, inputPath, outputPath, preset, totalPages = 0, 
 
 async function runWithFallbacks(inputPath, outputPath, preset, options = {}) {
   let lastError;
-  for (const command of CANDIDATE_COMMANDS) {
+  for (const command of getCandidateCommands()) {
     try {
       let totalPages = 0;
       if (options.onProgress) {
