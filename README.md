@@ -2,7 +2,7 @@
 
 ## O que faz
 
-Este projeto é um webapp que permite enviar um arquivo PDF, compactá-lo no servidor com Ghostscript e baixar o PDF compactado. Os níveis de compressão estão ligados à qualidade das imagens (screen, ebook, printer, prepress): quanto maior a compressão, menor o tamanho e menor a qualidade.
+Este projeto é um webapp que permite enviar um arquivo PDF, compactá-lo com Ghostscript e baixar o PDF compactado. Há duas formas de uso: **pelo navegador** (servidor Node) ou **aplicativo desktop** (Electron). Os níveis de compressão estão ligados à qualidade das imagens (screen, ebook, printer, prepress): quanto maior a compressão, menor o tamanho e menor a qualidade.
 
 ## Início rápido
 
@@ -13,22 +13,33 @@ Coloque o projeto em funcionamento em poucos minutos.
 - **Node.js** 18+ (ou LTS atual)
 - **Ghostscript** instalado e acessível no PATH, ou variável `GHOSTSCRIPT_PATH` apontando para o executável (ex.: no Windows: `gswin64c.exe`)
 
-### Instalação e execução
+### Instalação (uma vez)
 
 ```bash
 # Na raiz do projeto
 npm install
+```
 
-# Iniciar o servidor
+### Rodar na web (servidor)
+
+```bash
 npm run dev
 ```
 
 O servidor sobe em `http://localhost:3000`. Abra essa URL no navegador, escolha um PDF, selecione o nível de compressão e clique em **Compactar**. O arquivo compactado será oferecido para download.
 
+### Rodar no desktop (Electron)
+
+```bash
+npm run electron
+```
+
+Abre uma janela do aplicativo: clique em **Selecionar PDF**, escolha o arquivo, defina o nível de compressão e **Compactar**. Ao terminar, use **Salvar como** para guardar o PDF compactado onde quiser. O mesmo Ghostscript e presets da versão web são usados.
+
 ### Conferir se está funcionando
 
-- Acesse `http://localhost:3000` e veja a página do compactador.
-- Envie um PDF pequeno e confira se o download do arquivo compactado funciona e se os tamanhos original e compactado aparecem na tela.
+- **Web:** Acesse `http://localhost:3000`, envie um PDF pequeno e confira o download e os tamanhos na tela.
+- **Electron:** Rode `npm run electron`, selecione um PDF, compacte e confira se o diálogo de salvar e o arquivo final aparecem.
 
 ## Estrutura do projeto
 
@@ -98,12 +109,31 @@ O mesmo comando está em `npm start`.
 
 Para rodar o aplicativo como programa de desktop (sem servidor):
 
+1. **Instale as dependências** (se ainda não fez):
+   ```bash
+   npm install
+   ```
+
+2. **Inicie o aplicativo:**
+   ```bash
+   npm run electron
+   ```
+   Ou use o script alternativo: `npm run electron:dev`.
+
+3. **Na janela que abrir:**
+   - Clique em **Selecionar PDF** e escolha o arquivo no diálogo do sistema.
+   - Selecione o **nível de compressão** (equilibrado/ebook é o padrão).
+   - Clique em **Compactar** e aguarde o progresso.
+   - Quando terminar, use o diálogo **Salvar como** para escolher onde salvar o PDF compactado.
+   - Opcionalmente, use **Abrir pasta do arquivo** para abrir a pasta onde o arquivo foi salvo.
+
+**Requisitos:** Node.js 18+ e Ghostscript no PATH (ou variável `GHOSTSCRIPT_PATH`). O Electron usa a mesma lógica de `server/compress.js`. Se o Ghostscript não estiver no PATH (comum no Windows), defina antes de rodar:
+
 ```bash
-npm install
+# Windows (PowerShell) — exemplo
+$env:GHOSTSCRIPT_PATH="C:\Program Files\gs\gs10.03.0\bin\gswin64c.exe"
 npm run electron
 ```
-
-Requisitos: **Node.js 18+** e **Ghostscript** no PATH (ou `GHOSTSCRIPT_PATH`). O Electron usa a mesma lógica de compressão em `server/compress.js`. A interface fica em `public/index-electron.html`: você escolhe o PDF por um diálogo, seleciona o nível e salva o arquivo compactado onde quiser.
 
 ### Usar outra porta
 
@@ -142,7 +172,7 @@ No Windows você pode usar `gswin64c.exe` (64 bits) ou `gswin32c.exe` (32 bits).
 
 ### Erro: `spawn gs ENOENT` (ou `spawn gswin64c ENOENT`)
 
-**Causa:** O Node não encontrou o executável do Ghostscript (não está no PATH ou o nome do comando está errado).
+**Causa:** O Node não encontrou o executável do Ghostscript (não está no PATH ou o nome do comando está errado). Vale tanto para a versão web (`npm run dev`) quanto para o Electron (`npm run electron`).
 
 **O que fazer:**
 

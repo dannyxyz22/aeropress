@@ -20,7 +20,7 @@ function createWindow() {
     minWidth: 400,
     minHeight: 480,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.resolve(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -44,9 +44,18 @@ app.on("activate", () => {
   if (mainWindow === null) createWindow();
 });
 
+/** Janela pai para diálogos (focada ou principal) — evita diálogo não aparecer no Windows */
+function getDialogParent() {
+  return BrowserWindow.getFocusedWindow() || mainWindow;
+}
+
 /** Selecionar arquivo PDF (abre diálogo) */
 ipcMain.handle("select-pdf", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const parent = getDialogParent();
+  if (parent && !parent.isDestroyed()) {
+    parent.focus();
+  }
+  const result = await dialog.showOpenDialog(parent, {
     title: "Selecionar PDF",
     filters: [{ name: "PDF", extensions: ["pdf"] }],
     properties: ["openFile"],
@@ -88,7 +97,7 @@ ipcMain.handle("compress", async (_event, { inputPath, preset }) => {
     const outputStat = await fs.stat(outputPath);
     const compressedSize = outputStat.size;
 
-    const saveResult = await dialog.showSaveDialog(mainWindow, {
+    const saveResult = await dialog.showSaveDialog(getDialogParent(), {
       title: "Salvar PDF compactado",
       defaultPath: path.join(path.dirname(inputPath), "compactado.pdf"),
       filters: [{ name: "PDF", extensions: ["pdf"] }],

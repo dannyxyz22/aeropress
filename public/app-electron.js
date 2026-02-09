@@ -31,17 +31,25 @@ function setStatus(message, isError = false) {
 }
 
 selectPdfBtn.addEventListener("click", async () => {
-  const result = await window.electronAPI.selectPdf();
-  if (!result) {
-    setStatus("Nenhum arquivo selecionado.");
-    selectedFile = null;
-    fileNameEl.textContent = "Nenhum arquivo selecionado";
+  if (!window.electronAPI?.selectPdf) {
+    setStatus("Erro: API do Electron não disponível. Reinicie o aplicativo.", true);
     return;
   }
-  selectedFile = result;
-  fileNameEl.textContent = `${result.name} (${formatBytes(result.size)})`;
-  setStatus("");
-  resultEl.classList.add("hidden");
+  try {
+    const result = await window.electronAPI.selectPdf();
+    if (!result) {
+      setStatus("Nenhum arquivo selecionado.");
+      selectedFile = null;
+      fileNameEl.textContent = "Nenhum arquivo selecionado";
+      return;
+    }
+    selectedFile = result;
+    fileNameEl.textContent = `${result.name} (${formatBytes(result.size)})`;
+    setStatus("");
+    resultEl.classList.add("hidden");
+  } catch (err) {
+    setStatus("Erro ao abrir diálogo: " + (err?.message || String(err)), true);
+  }
 });
 
 window.electronAPI.onCompressProgress((percent) => {
@@ -76,7 +84,12 @@ form.addEventListener("submit", async (event) => {
       window.electronAPI.showItemInFolder(result.savedPath);
     };
   } catch (err) {
-    const msg = err?.message || "Erro ao compactar.";
+    let msg = err?.message || "Erro ao compactar.";
+    if (msg.includes("ENOENT") || msg.includes("spawn")) {
+      msg =
+        "Ghostscript não encontrado. Instale o Ghostscript (ghostscript.com) e coloque na pasta PATH do sistema, " +
+        "ou inicie o app com: $env:GHOSTSCRIPT_PATH=\"C:\\Program Files\\gs\\gs10.xx\\bin\\gswin64c.exe\"; npm run electron";
+    }
     setStatus(msg, true);
   } finally {
     submitBtn.disabled = false;

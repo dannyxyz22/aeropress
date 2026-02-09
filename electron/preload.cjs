@@ -1,5 +1,6 @@
 /**
  * Preload — expõe API segura para o renderer (contextBridge).
+ * Extensão .cjs garante CommonJS com "type": "module" no package.json.
  */
 const { contextBridge, ipcRenderer } = require("electron");
 
