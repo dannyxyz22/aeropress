@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <title>Compactador de PDF</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1>Compactador de PDF</h1>
+        <p class="subtitle">Escolha um PDF e o nível de compressão. O arquivo será processado no seu computador (Ghostscript).</p>
+      </header>
+
+      <form id="compress-form" class="card">
+        <label class="field">
+          <span class="label">Arquivo PDF</span>
+          <div class="electron-file-area">
+            <button type="button" id="select-pdf-btn" class="select-pdf-btn">Selecionar PDF</button>
+            <span class="file-name" id="file-name" aria-live="polite">Nenhum arquivo selecionado</span>
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="label">Nível de compressão</span>
+          <select id="preset" name="preset">
+            <option value="low">Máxima redução (screen)</option>
+            <option value="medium" selected>Equilibrado (ebook)</option>
+            <option value="high">Alta qualidade (printer)</option>
+            <option value="max">Mínima alteração (prepress)</option>
+          </select>
+        </label>
+
+        <button type="submit" id="submit-btn">Compactar</button>
+      </form>
+
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <section id="result" class="result hidden">
+        <p id="sizes" class="result-sizes"></p>
+        <button type="button" id="open-folder-btn" class="download-btn">Abrir pasta do arquivo</button>
+      </section>
+    </main>
+    <script src="app-electron.js"></script>
+  </body>
+</html>

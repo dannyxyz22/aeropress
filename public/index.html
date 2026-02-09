@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compactador de PDF da FAB</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1>Compactador de PDF da FAB</h1>
+        <p class="subtitle">Envie seu PDF e escolha o nível de compressão. O arquivo será processado no servidor.</p>
+      </header>
+
+      <form id="compress-form" class="card">
+        <label class="field">
+          <span class="label">Arquivo PDF</span>
+          <div class="drop-zone" id="drop-zone" tabindex="0" role="button">
+            <input id="file-input" name="file" type="file" accept="application/pdf" required />
+            <span class="drop-zone-text">Clique ou arraste um PDF aqui</span>
+            <span class="file-name" id="file-name" aria-live="polite"></span>
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="label">Nível de compressão</span>
+          <select id="preset" name="preset">
+            <option value="low">Máxima redução (screen)</option>
+            <option value="medium" selected>Equilibrado (ebook)</option>
+            <option value="high">Alta qualidade (printer)</option>
+            <option value="max">Mínima alteração (prepress)</option>
+          </select>
+        </label>
+
+        <button type="submit" id="submit-btn">Compactar</button>
+      </form>
+
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <section id="result" class="result hidden">
+        <p id="sizes" class="result-sizes"></p>
+        <a id="download-link" class="download" href="#" download="compressed.pdf">Baixar PDF compactado</a>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
